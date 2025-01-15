@@ -38,8 +38,8 @@ ENV/
 vlm_infer/**/__pycache__/
 vlm_infer/**/results/
 vlm_infer/**/logs/
-vlm_infer/**/data/
-
+# Remove raw data files and not py files
+vlm_infer/**/data/raw_data/
 # Project specific files
 .env
 **/*.log

@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific directories
+/consistory/
+/ToMBench/
+/test/
+vlm_infer/**/__pycache__/
+vlm_infer/**/results/
+vlm_infer/**/logs/
+
+# Project specific files
+.env
+**/*.log
+**/*.csv
+**/*.json
+**/*.yaml
+!configs/*.yaml
+!vlm_infer/configs/defaults/*.yaml
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Documentation
+docs/_build/ 

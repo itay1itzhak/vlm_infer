@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vlm_infer"
+version = "0.1"
+dependencies = [
+    "torch",
+    "Pillow",
+    "pandas",
+    "pyyaml",
+    "rich",
+    "python-dotenv",
+]
+
+[tool.setuptools]
+packages = ["vlm_infer"] 

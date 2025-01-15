@@ -1,0 +1,12 @@
+model:
+  name: "llava_13B"
+  type: "hf"
+  checkpoint: "llava-hf/llava-1.5-13b-hf"
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+  is_chat_model: true
+  prompt_template: "{question}"
+  torch_dtype: "float16"
+  device_map: "auto"
+  model_class: "LlavaForConditionalGeneration" 

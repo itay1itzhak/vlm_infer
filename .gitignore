@@ -38,6 +38,7 @@ ENV/
 vlm_infer/**/__pycache__/
 vlm_infer/**/results/
 vlm_infer/**/logs/
+vlm_infer/**/data/
 
 # Project specific files
 .env

@@ -1,0 +1,334 @@
+system_prompts:
+  extraction: >-
+    You are a helpful assistant that extracts answers from a given text and listens to the user's instructions carefully.
+  correctness: >-
+    You are a helpful assistant that checks if an answer is correct and listens to the user's instructions carefully.
+
+extraction_prompts:
+  base:
+    instruction: >-
+      Extract the final answer selected in the given answer text. Explicitly write [FINAL_ANSWER] where FINAL_ANSWER is replaced with the text of the final answer selected in the given answer text. If you cannot extract a clearly final answer, write '[NO_ANSWER]'.
+    template: >-
+      You will be given an answer text from reasoning task. Your task is to extract only the final answer selected in the answer text.
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- EXTRACTED ANSWER ---
+    examples:
+      - answer: >-
+          The silver letter opener is now in a glass container.
+        extracted: "[glass container]"
+      - answer: >-
+          The silver letter opener was in a container at the beginning.
+        extracted: "[container]"
+      - answer: >-
+          In the provided image, the silver letter opener can be in several places like a wooden box, a glass container, or a wooden case.
+        extracted: "[NO_ANSWER]"
+
+  base_with_examples:
+    instruction: >-
+      Extract the final answer selected in the given answer text. Explicitly write [FINAL_ANSWER] where FINAL_ANSWER is replaced with the text of the final answer selected in the given answer text. If you cannot extract a clearly final answer, write '[NO_ANSWER]'.
+    template: >-
+      You will be given an answer text from reasoning task. Your task is to extract only the final answer selected in the answer text.
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- EXAMPLES ---
+
+      {examples_section}
+
+      --- END OF EXAMPLES ---
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- EXTRACTED ANSWER ---
+    example_template: >-
+
+      --- EXAMPLE ANSWER ---
+
+      {example_answer}
+
+      --- EXTRACTED EXAMPLE ANSWER ---
+
+      {example_extracted}
+    examples:
+      - answer: >-
+          The silver letter opener is now in a glass container.
+        extracted: "[glass container]"
+      - answer: >-
+          The silver letter opener was in a container at the beginning.
+        extracted: "[container]"
+      - answer: >-
+          In the provided image, the silver letter opener can be in several places like a wooden box, a glass container, or a wooden case.
+        extracted: "[NO_ANSWER]"
+
+  with_question:
+    instruction: >-
+      Extract the final answer selected in the given answer text. Explicitly write [FINAL_ANSWER] where FINAL_ANSWER is replaced with the text of the final answer selected in the given answer text. If you cannot extract a clearly final answer, write '[NO_ANSWER]'.
+    template: >-
+      You will be given a question and an answer text from reasoning task. Your task is to extract only the final answer selected in the answer text.
+
+      --- QUESTION ---
+
+      {question}
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- EXTRACTED ANSWER ---
+    examples:
+      - question: "Where will Aubrey search for the script?"
+        answer: "Lachlan thinks that Aubrey will search for the script in the room with the shelves."
+        extracted: "[room with shelves]"
+      - question: "Where will Aubrey search for the script?"
+        answer: "Lachlan will search for the script in the room with the shelves."
+        extracted: "[Lachlan will search for the script in the room with the shelves.]"
+      - question: "Where Kaylee thinks Liam will search for the wooden desk drawer?"
+        answer: "Kaylee thinks that Liam will search for the wooden desk drawer in the office."
+        extracted: "[the office.]"
+
+  with_answer:
+    instruction: >-
+      Extract the final answer selected in the given answer text. If the answer is correct according to the expected answer, explicitly write [FINAL_ANSWER] where FINAL_ANSWER is replaced with the text of the final answer selected in the given answer text. If the answer is incorrect, write "WRONG_ANSWER". If the answer is not clear, write "NOT_CLEAR". If you cannot extract a clearly final answer, write '[NO_ANSWER]'.
+    template: >-
+      You will be given a question, an expected answer, and an answer text from reasoning task. Your task is to extract only the final answer selected in the answer text.
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- QUESTION ---
+
+      {question}
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- EXTRACTED ANSWER ---
+    examples:
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in a wooden box."
+        extracted: "[wooden box]"
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in the same place as the person."
+        extracted: "[NO_ANSWER]"
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "In the provided image, the silver letter opener can be in several places like a wooden box, a glass container, or a wooden case."
+        extracted: "[NO_ANSWER]"
+
+correctness_prompts:
+  base:
+    instruction: >-
+      Decide if the answer is correct according to the expected answer. If the answer is correct, write "CORRECT". If the answer is incorrect, write "INCORRECT". If the answer is not clear enough to be correct or incorrect, write "NOT_CLEAR". If the answer is NO_ANSWER, write "NO_ANSWER".
+    template: >-
+      You will be given an answer text from reasoning task and an expected answer. Your task is to check if the answer is correct according to the expected answer.
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- CORRECTNESS CHECK ---
+
+  base_with_examples:
+    instruction: >-
+      Decide if the answer is correct according to the expected answer. If the answer is correct, write "CORRECT". If the answer is incorrect, write "INCORRECT". If the answer is not clear enough to be correct or incorrect, write "NOT_CLEAR". If the answer is NO_ANSWER, write "NO_ANSWER".
+    template: >-
+      You will be given an answer text from reasoning task and an expected answer. Your task is to check if the answer is correct according to the expected answer.
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- EXAMPLES ---
+
+      {examples_section}
+
+      --- END OF EXAMPLES ---
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+      
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- CORRECTNESS CHECK ---
+
+  with_question:
+    instruction: >-
+      Decide if the answer is correct according to the expected answer and question context. If the answer is correct, write "CORRECT". If the answer is incorrect, write "INCORRECT". If the answer is not clear enough to be correct or incorrect, write "NOT_CLEAR". If the answer is NO_ANSWER, write "NO_ANSWER".
+    template: >-
+      You will be given a question, an answer text, and an expected answer. Your task is to check if the answer is correct according to the expected answer.
+
+      --- QUESTION ---
+
+      {question}
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+      
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- CORRECTNESS CHECK ---
+    examples:
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in a wooden box."
+        extracted: "[wooden box]"
+
+  soft:
+    instruction: >-
+      Decide if the answer is correct according to the expected answer. If the answer is correct, write "CORRECT". If the answer is close to the expected answer, write "PARTIALLY_CORRECT". If the answer is incorrect, write "INCORRECT". If the answer is not clear enough to be correct or incorrect, write "NOT_CLEAR". If the answer is NO_ANSWER, write "NO_ANSWER".
+    template: >-
+      You will be given an answer text from reasoning task and an expected answer. Your task is to check if the answer is correct according to the expected answer.
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+      
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- CORRECTNESS CHECK ---
+  soft_with_question:
+    instruction: >-
+      Decide if the answer is correct according to the expected answer and question context. If the answer is correct, write "CORRECT". If the answer is close to the expected answer, write "PARTIALLY_CORRECT". If the answer is incorrect, write "INCORRECT". If the answer is not clear enough to be correct or incorrect, write "NOT_CLEAR". If the answer is NO_ANSWER, write "NO_ANSWER".
+    template: >-
+      You will be given a question, an answer text, and an expected answer. Your task is to check if the answer is correct according to the expected answer.
+
+      --- QUESTION ---
+
+      {question}
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- CORRECTNESS CHECK ---
+    examples:
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in a wooden box."
+        extracted: "wooden box"
+        correctness: "PARTIALLY_CORRECT"
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in a wooden case."
+        extracted: "in the wooden case."
+        correctness: "CORRECT"
+  soft_with_question_with_examples:
+    instruction: >-
+      Decide if the answer is correct according to the expected answer and question context. If the answer is correct, write "CORRECT". If the answer is close to the expected answer, write "PARTIALLY_CORRECT". If the answer is incorrect, write "INCORRECT". If the answer is not clear enough to be correct or incorrect, write "NOT_CLEAR". If the answer is NO_ANSWER, write "NO_ANSWER".
+    template: >-
+      You will be given a question, an answer text, and an expected answer. Your task is to check if the answer is correct according to the expected answer.
+
+      --- EXAMPLES ---
+
+      {examples_section}
+
+      --- END OF EXAMPLES ---
+
+      --- QUESTION ---
+
+      {question}
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+
+      --- ANSWER ---
+
+      {answer}
+
+      --- INSTRUCTION ---
+
+      {instruction}
+
+      --- CORRECTNESS CHECK ---
+    example_template: >-
+      --- QUESTION ---
+
+      {question}
+
+      --- EXPECTED ANSWER ---
+
+      {expected_answer}
+
+      --- ANSWER ---
+
+      {example_answer}
+
+      --- CORRECTNESS CHECK ---
+
+      {example_correctness}
+    examples:
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in a wooden box."
+        extracted: "wooden box"
+        correctness: "PARTIALLY_CORRECT"
+      - question: "Where is the letter opener now?"
+        expected: "[wooden case]"
+        answer: "The silver letter opener is now in a wooden case."
+        extracted: "in the wooden case."
+        correctness: "CORRECT"

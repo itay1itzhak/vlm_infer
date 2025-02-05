@@ -1,22 +1,21 @@
 model:
+  name: "llava_7B"
   type: "hf"
   checkpoint: "llava-hf/llava-1.5-7b-hf"
+  temperature: 0.0  # Use greedy decoding
   max_new_tokens: 512
-  temperature: 0.7
-  top_p: 0.9
   is_chat_model: true
-  torch_dtype: "float16"
-  device_map: "auto"
-  model_class: "LlavaForConditionalGeneration"
 
 dataset:
   name: "vtom"
+  data_dir: "data/vtom"
+  version: "take_4.1"
   split: "test"
+  inference_type: "image_story"
   image_size: [224, 224]
-  inference_type: "standard"
 
 inference:
   batch_size: 1
   num_workers: 4
-  save_images: false
+  save_images: true
   verbose: true 

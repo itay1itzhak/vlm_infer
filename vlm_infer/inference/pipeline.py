@@ -8,6 +8,8 @@ from tqdm import tqdm
 import logging
 from PIL import Image
 import numpy as np
+from datetime import datetime
+import yaml
 
 from vlm_infer.models.base import BaseModel
 from vlm_infer.data.base import BaseDataset
@@ -90,26 +92,80 @@ class InferencePipeline:
         self.model = model
         self.dataset = dataset
         self.batch_size = batch_size
-        self.output_dir = output_dir
         self.config = config
         self.logger = logging.getLogger("vlm_infer")
         
+        # Create organized output directory structure
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.run_dir = Path(output_dir) / dataset.name / model.config.name / dataset.inference_type.value / timestamp
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save run configuration and details
+        self._save_run_info()
+    
+    def _save_run_info(self,results=None):
+        """Save detailed information about the run."""
+        if results is not None:
+            num_results = len(results)
+            num_errors = sum(1 for result in results if result["error"] is not None)
+        else:
+            num_results = None
+            num_errors = None
+        
+        run_info = {
+            "timestamp": datetime.now().isoformat(),
+            "model": {
+                "name": self.model.config.name,
+                "type": self.model.config.type,
+                "checkpoint": getattr(self.model.config, "checkpoint", None),
+                "max_new_tokens": getattr(self.model.config, "max_new_tokens", None),
+                "temperature": getattr(self.model.config, "temperature", None),
+                "top_p": getattr(self.model.config, "top_p", None),
+                "top_k": getattr(self.model.config, "top_k", None),
+                "num_return_sequences": getattr(self.model.config, "num_return_sequences", None),
+                "torch_dtype": getattr(self.model.config, "torch_dtype", None),
+                "seed": getattr(self.model.config, "seed", None),
+                "device": self.model.device,
+                "generation_config": self.model.config.to_dict()
+            },
+            "dataset": {
+                "name": self.dataset.name,
+                "size": len(self.dataset),
+                "inference_type": self.dataset.inference_type.value,
+                "version": getattr(self.dataset, "version", None)
+            },
+            "batch_size": self.batch_size,
+            "full_config": self.config.to_dict(),
+            "num_results": num_results,
+            "num_errors": num_errors
+        }
+        
+        # Save as JSON for easy reading
+        with open(self.run_dir / "run_info.json", "w") as f:
+            json.dump(run_info, f, indent=2)
+            
+        # Save full config as YAML
+        with open(self.run_dir / "config.yaml", "w") as f:
+            yaml.dump(self.config, f)
+    
     def run(self) -> List[Dict[str, Any]]:
+        """Run inference and save results."""
         dataloader = DataLoader(
             self.dataset,
             batch_size=self.batch_size,
             shuffle=False,
-            num_workers=4,  # Can use multiple workers
+            num_workers=4,
             collate_fn=custom_collate_fn,
-            pin_memory=True,  # Better GPU transfer
-            persistent_workers=True,  # Keep workers alive between batches
-            prefetch_factor=2  # Prefetch next batches
+            pin_memory=True,
+            persistent_workers=True
         )
         
         results = []
         for batch in tqdm(dataloader, desc="Running inference"):
-            try:                
-                outputs = self.model(batch)
+            try:
+                # Get model inputs and generate outputs
+                model_inputs = self.model.prepare_inputs(batch)
+                outputs = self.model.generate(model_inputs["all_inputs"])
                 
                 # Combine outputs with metadata
                 for idx, output in enumerate(outputs):
@@ -117,7 +173,9 @@ class InferencePipeline:
                         "id": batch["id"][idx],
                         "question": batch["questions"][idx],
                         "answer": output,
-                        "metadata": batch.get("metadata", {})[idx] if "metadata" in batch else {}
+                        "metadata": batch.get("metadata", {})[idx] if "metadata" in batch else {},
+                        "prompt": model_inputs.get("text", model_inputs.get("prompt", ""))[idx],
+                        "error": None
                     }
                     results.append(result)
                     
@@ -126,41 +184,51 @@ class InferencePipeline:
                 results.append({
                     "id": batch["id"][idx],
                     "question": batch["questions"][idx],
-                    "answer": str(e),
-                    "metadata": batch.get("metadata", {})[idx] if "metadata" in batch else {}
+                    "answer": f"ERROR: {str(e)}",
+                    "metadata": batch.get("metadata", {})[idx] if "metadata" in batch else {},
+                    "error": str(e)
                 })
                 continue
-                
+        
+        # Save results
+        self.save_results(results)
         return results
     
     def save_results(self, results: List[Dict[str, Any]]):
-        """Save results with inference type information."""
+        """Save results with detailed organization."""
+        # Save full results with all details
+        with open(self.run_dir / "detailed_results.json", "w") as f:
+            json.dump(results, f, indent=2)
+        
+        # Save CSV format for easy analysis
         if isinstance(self.dataset, VToMDataset):
             self._save_vtom_results(results)
         else:
             self._save_default_results(results)
+
+        self._save_run_info(results)
     
     def _save_vtom_results(self, results: List[Dict[str, Any]]):
+        """Save VToM specific results."""
         df = self.dataset.get_original_data()
         version = self.dataset.version
         inference_type = self.dataset.inference_type.value
         
-        # Create model output column with version and inference type info
+        # Create model output columns
         model_outputs = {result["id"]: result["answer"] for result in results}
-        column_name = f"model_generation_{self.model.config.name}_{version}_{inference_type}"
-        df[column_name] = df.index.map(lambda x: model_outputs.get(x, ""))
+        model_prompts = {result["id"]: result["prompt"] for result in results}
+
+        # Add columns with version and inference type info
+        output_col = f"model_generation"
+        prompt_col = f"model_prompt"
         
-        # Save updated CSV
-        output_file = self.output_dir / f"results_{version}_{inference_type}.csv"
-        df.to_csv(output_file, index=False)
+        df[output_col] = df.index.map(lambda x: model_outputs.get(x, ""))
+        df[prompt_col] = df.index.map(lambda x: model_prompts.get(x, ""))
         
-        # Save detailed results
-        detailed_output = self.output_dir / f"detailed_results_{version}_{inference_type}.json"
-        with open(detailed_output, "w") as f:
-            json.dump(results, f, indent=2)
+        # Save CSV
+        df.to_csv(self.run_dir / "results.csv", index=False)
     
     def _save_default_results(self, results: List[Dict[str, Any]]):
-        """Default JSON results saving."""
-        output_file = self.output_dir / "results.json"
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2) 
+        """Save results for other datasets."""
+        df = pd.DataFrame(results)
+        df.to_csv(self.run_dir / "results.csv", index=False) 

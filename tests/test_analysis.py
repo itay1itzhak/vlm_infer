@@ -36,31 +36,31 @@ def test_answer_evaluator():
     """Test answer evaluator."""
     evaluator = AnswerEvaluator(extraction_method="regex")
     df = pd.DataFrame({
-        "model_generation_test": [
+        "model_generation": [
             "I think the answer is yes.",
             "No, because...",
             "Therefore, maybe."
         ]
     })
     
-    processed_df = evaluator.process_answers(df, "model_generation_test")
-    assert "model_generation_test_processed" in processed_df.columns
+    processed_df = evaluator.process_answers(df, "model_generation")
+    assert "model_generation_processed" in processed_df.columns
 
 def test_result_analyzer(test_results):
     """Test result analyzer."""
     analyzer = ResultAnalyzer(test_results)
     
     # Test adding scores
-    df = analyzer.add_scores("model_generation_llava")
-    assert "model_generation_llava_f1" in df.columns
+    df = analyzer.add_scores("model_generation")
+    assert "model_generation_f1" in df.columns
     
     # Test group analysis
-    group_analysis = analyzer.analyze_by_group("story_type", "model_generation_llava")
+    group_analysis = analyzer.analyze_by_group("story_type", "model_generation")
     assert len(group_analysis) == 2  # type_A and type_B
     
     # Test model comparison
     comparison = analyzer.compare_models(
-        ["model_generation_llava", "model_generation_gpt4v"]
+        ["model_generation", "model_generation"]
     )
     assert "overall" in comparison.columns
 
@@ -79,7 +79,7 @@ def test_result_plotter(test_results, tmp_path):
     plotter.plot_feature_analysis(
         test_results,
         "story_type",
-        "model_generation_llava",
+        "model_generation",
         save_name="test_feature"
     )
     assert (tmp_path / "test_feature.png").exists() 

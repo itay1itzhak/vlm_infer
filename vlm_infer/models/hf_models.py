@@ -91,64 +91,78 @@ class HuggingFaceModel(BaseModel):
         """Prepare inputs using model-specific preprocessor."""
         if not self.preprocessor:
             raise ValueError("Preprocessor not initialized")
+        
+        # Get batch size from questions
+        batch_size = len(batch["questions"])
+        all_prompts = []
+        
+        # Process each sample in the batch
+        for i in range(batch_size):
+            prompt_parts = []
             
-        # Extract images and text from batch
-        images = batch["images"]
-        text = batch.get("questions", [""])[0]  # Default empty string if no question
-        
-        # Build the full text prompt
-        prompt_parts = []
-        
-        # Add story if present
-        if "stories" in batch:
-            prompt_parts.append(f"Story: {batch['stories'][0]}")
+            # Add story if present
+            if "stories" in batch:
+                prompt_parts.append(f"Story: {batch['stories'][i]}")
             
-        # Add captions if present
-        if "captions" in batch:
-            captions = batch["captions"][0]
-            if isinstance(captions, dict):
-                caption_text = "\n".join(f"{k}: {v}" for k, v in captions.items())
-            else:
-                caption_text = str(captions)
-            prompt_parts.append(f"Context:\n{caption_text}")
-        
-        # Add question
-        prompt_parts.append(f"Question: {text}")
-        
-        # Combine all parts
-        full_text = "\n".join(prompt_parts)
-        
-        # Create conversation format
-        conversation = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": full_text},
-                    {"type": "image"},
-                ],
-            },
-        ]
-        
-        # Apply chat template
-        prompt = self.processor.apply_chat_template(
-            conversation,
-            add_generation_prompt=True
-        )
-
-        # If images is a list, convert to a single image
-        if len(images) > 1:
-            raise NotImplementedError("Batch processing of multiple images is not supported for Hugging Face models")
-        
-        else:
-            # Process inputs with processor
-            inputs = self.processor(
-                images=images[0],  # Most models expect single image
-                text=prompt,
-                return_tensors="pt"
+            # Add details if present
+            if "details" in batch:
+                details = batch["details"][i]
+                if isinstance(details, dict):
+                    details_text = "\n".join(f"{k.replace('_', ' ').title()}: {v}" 
+                                           for k, v in details.items())
+                    prompt_parts.append(f"Story Details:\n{details_text}")
+            
+            # Add captions if present
+            if "captions" in batch:
+                captions = batch["captions"][i]
+                if isinstance(captions, dict):
+                    caption_text = "\n".join(f"{k}: {v}" for k, v in captions.items())
+                    prompt_parts.append(f"Context:\n{caption_text}")
+                else:
+                    caption_text = str(captions)
+                    prompt_parts.append(f"Context:\n{caption_text}")
+            
+            # Add question
+            text = batch.get("questions", [""] * batch_size)[i]
+            prompt_parts.append(f"Question: {text}")
+            
+            # Combine all parts
+            full_text = "\n".join(prompt_parts)
+            
+            # Create conversation format
+            conversation = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": full_text}
+                    ],
+                },
+            ]
+            
+            # Add image if present
+            if "images" in batch and batch["images"]:
+                conversation[0]["content"].append({"type": "image"})
+            
+            # Apply chat template
+            prompt = self.processor.apply_chat_template(
+                conversation,
+                add_generation_prompt=True
             )
+            all_prompts.append(prompt)
+
+        # Process all images and prompts together
+        inputs = self.processor(
+            images=batch.get("images", None),
+            text=all_prompts,
+            return_tensors="pt",
+            padding=True
+        )
         
         # Move to device
-        return {k: v.to(self.device) for k, v in inputs.items()}
+        inputs["all_inputs"] = {k: v.to(self.device) for k, v in inputs.items()}
+        inputs["prompt"] = all_prompts
+        
+        return inputs
 
     def __call__(self, batch: Dict[str, Any]) -> List[str]:
         inputs = self.prepare_inputs(batch)
@@ -166,10 +180,12 @@ class LlavaModel(HuggingFaceModel):
             token=self.hf_token
         )
         
+        print(f"Loading model {checkpoint} from cache dir {cache_dir}")
         self.model = LlavaForConditionalGeneration.from_pretrained(
             checkpoint,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.bfloat16,
             device_map="auto",
+            cache_dir=cache_dir,
             token=self.hf_token
         )
         
@@ -195,6 +211,7 @@ class LlamaVisionModel(HuggingFaceModel):
             checkpoint,
             torch_dtype=torch.bfloat16,
             device_map="auto",
+            cache_dir=cache_dir,
             token=self.hf_token
         )
         

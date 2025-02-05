@@ -1,7 +1,19 @@
 model:
   type: "openai"
-  model_name: "gpt-4-vision-preview"
+  name: "gpt-4-vision-preview"
   max_new_tokens: 300
   temperature: 0.7
   api_base: "https://api.openai.com/v1/chat/completions"
-  is_chat_model: true 
+  is_chat_model: true
+
+dataset:
+  name: "vtom"
+  split: "test"
+  image_size: [224, 224]
+  inference_type: "standard"
+
+inference:
+  batch_size: 1
+  num_workers: 4
+  save_images: false
+  verbose: true 

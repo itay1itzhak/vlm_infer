@@ -23,12 +23,12 @@ def create_test_dataset(num_samples=5):
 
 def create_test_results(num_samples=5, models=None):
     """Create test results dataframe."""
-    models = models or ["model_generation_llava", "model_generation_gpt4v"]
+    models = models or ["model_generation", "model_generation"]
     df = create_test_dataset(num_samples)
     
     for model in models:
         df[model] = [f"Generated answer {i} from {model}" for i in range(num_samples)]
         df[f"{model}_processed"] = [f"Answer {i}" for i in range(num_samples)]
-        df[f"{model}_f1"] = np.random.uniform(0, 1, num_samples)
+        df[f"{model}_accuracy"] = np.random.uniform(0, 1, num_samples)
     
     return df 

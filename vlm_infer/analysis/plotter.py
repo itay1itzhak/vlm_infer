@@ -22,16 +22,21 @@ class ResultPlotter:
     def plot_model_comparison(
         self,
         results: pd.DataFrame,
-        metric: str = "f1",
+        metric: str = "accuracy",
         title: str = "Model Comparison",
         save_name: Optional[str] = None
     ):
-        """Plot comparison of multiple models."""
+        """Plot model comparison."""
         plt.figure(figsize=(10, 6))
-        sns.barplot(data=results, y=metric)
+        
+        # Plot bars
+        ax = results.loc[metric].plot(kind='bar', yerr=results.loc[f"{metric}_std"])
+        
         plt.title(title)
+        plt.ylabel(metric.title())
         plt.xticks(rotation=45)
         plt.tight_layout()
+        
         self._save_or_show(save_name)
     
     def plot_feature_analysis(
@@ -45,9 +50,9 @@ class ResultPlotter:
         """Plot analysis by feature."""
         plt.figure(figsize=(12, 6))
         sns.boxplot(
-            data=self.df,
+            data=results,
             x=feature,
-            y=f"{model_column}_f1"
+            y=f"{model_column}_score"
         )
         plt.title(title or f"Performance by {feature}")
         plt.xticks(rotation=45)
@@ -56,29 +61,34 @@ class ResultPlotter:
     
     def plot_model_comparison_by_feature(
         self,
-        results: pd.DataFrame,
+        df: pd.DataFrame,
         feature: str,
         model_columns: List[str],
         title: Optional[str] = None,
         save_name: Optional[str] = None
     ):
-        """Plot comparison of multiple models grouped by feature."""
+        """Plot model comparison by feature."""
+        plt.figure(figsize=(12, 6))
+        
+        # Melt the dataframe for seaborn
         melted = pd.melt(
-            results,
+            df,
             id_vars=[feature],
-            value_vars=[f"{m}_f1" for m in model_columns],
+            value_vars=[f"{m}_score" for m in model_columns],
             var_name="Model",
-            value_name="F1 Score"
+            value_name="Score"
         )
         
-        plt.figure(figsize=(12, 6))
+        # Create plot
         sns.boxplot(
             data=melted,
             x=feature,
-            y="F1 Score",
+            y="Score",
             hue="Model"
         )
+        
         plt.title(title or f"Model Comparison by {feature}")
         plt.xticks(rotation=45)
         plt.tight_layout()
+        
         self._save_or_show(save_name) 

@@ -4,16 +4,19 @@ from pathlib import Path
 from PIL import Image
 import torch
 from .base import BaseDataset
+from vlm_infer.config import DatasetConfig
 
 class COCODataset(BaseDataset):
     """COCO VQA dataset implementation."""
     
-    def __init__(self, config: Dict[str, Any]):
+    default_name = "coco"
+    
+    def __init__(self, config: DatasetConfig):
         super().__init__(config)
         self.data_dir = Path(config.data_dir)
         self.split = config.split
         self.max_samples = config.max_samples
-        self.image_size = config.image_size or (224, 224)
+        self.image_size = config.image_size
         
         # Load annotations
         self.questions = self._load_questions()

@@ -11,6 +11,8 @@ import torch
 class VToMDataset(BaseDataset):
     """Visual Theory of Mind (VToM) dataset implementation."""
     
+    default_name = "vtom"  # Default name when no specific dataset path is provided
+    
     def __init__(self, config: DatasetConfig):
         super().__init__(config)
         
@@ -101,6 +103,7 @@ class VToMDataset(BaseDataset):
         full_path = self.version_dir / image_path
         if not full_path.exists():
             print(f"Image not found: {full_path}")
+            self.logger.warning(f"Image not found: {full_path}")
             # Create an empty PIL Image instead of tensor
             return Image.new('RGB', self.image_size, (0, 0, 0))
             
@@ -125,6 +128,24 @@ class VToMDataset(BaseDataset):
             "image_path": row["processed_image_path"],
             "version": self.version
         }
+        
+        # Generate details if needed
+        details = None
+        if any(self.inference_type == t for t in [InferenceType.STORY_DETAILS]):
+            details = {
+                "story_type": row.get("story_type", ""),
+                "num_people": row.get("num_people", ""),
+                "context": row.get("context", ""),
+                "scene": row.get("scene_description", ""),
+                "character_names": row.get("character_names", ""),
+                "character_roles": row.get("character_roles", ""),
+                "location": row.get("location", ""),
+                "time": row.get("time", ""),
+                "emotions": row.get("emotions", ""),
+                "actions": row.get("actions", "")
+            }
+            # Remove empty details
+            details = {k: v for k, v in details.items() if v}
         
         # Generate captions if needed
         captions = None
@@ -190,6 +211,15 @@ class VToMDataset(BaseDataset):
                 "id": idx,
                 "stories": [row["story_structure"]],
                 "captions": [captions],
+                "questions": [row["question"]],
+                "metadata": metadata
+            }
+        
+        elif self.inference_type == InferenceType.STORY_DETAILS:
+            return {
+                "id": idx,
+                "images": [self._load_image(row["processed_image_path"])],
+                "stories": [row["story_details"]],
                 "questions": [row["question"]],
                 "metadata": metadata
             }

@@ -1,20 +1,36 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, Tuple
 from copy import deepcopy
+import yaml
+from pathlib import Path
+from .types import InferenceType
 from .configs.defaults import load_default_config
-from vlm_infer.utils.env import get_cache_dir
-
-def default_preprocessing() -> Dict[str, Any]:
-    return {
-        "resize": True,
-        "normalize": True
-    }
 
 @dataclass
+class InferenceConfig:
+    """Inference-specific configuration."""
+    batch_size: int = 1
+    num_workers: int = 4
+    save_images: bool = False
+    verbose: bool = True
+    save_dir: Optional[str] = None
+    save_dir_path: Optional[Path] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary."""
+        return {
+            "batch_size": self.batch_size,
+            "num_workers": self.num_workers,
+            "save_images": self.save_images,
+            "verbose": self.verbose,
+            "save_dir": self.save_dir,
+            "save_dir_path": self.save_dir_path
+        }
+    
+@dataclass
 class ModelConfig:
-    # Required fields
+    """Model-specific configuration."""
     name: str
-    type: str = field(default="hf")  # Default to HuggingFace models
+    type: str = field(default="hf")
     
     # Model loading settings
     checkpoint: Optional[str] = None
@@ -32,6 +48,9 @@ class ModelConfig:
     top_p: float = 0.9
     num_beams: int = 1
     do_sample: bool = False
+    top_k: int = 50
+    num_return_sequences: int = 1
+    seed: int = 42
     
     # Model behavior settings
     is_chat_model: bool = True
@@ -42,121 +61,137 @@ class ModelConfig:
     device_map: str = "auto"
     
     def __post_init__(self):
-        # Validate model type
         valid_types = ["hf", "openai", "local", "api"]
         if self.type not in valid_types:
-            raise ValueError(f"Invalid model type: {self.type}. Must be one of {valid_types}")
-        
-        # Validate required fields based on type
-        if self.type == "hf" and not (self.checkpoint or self.model_path):
-            raise ValueError("HuggingFace models require either checkpoint or model_path")
-        
-        if self.type == "local" and not self.model_path:
-            raise ValueError("Local models require model_path")
-        
-        # Validate numeric parameters
-        if not 0 <= self.temperature <= 2:
-            raise ValueError("Temperature must be between 0 and 2")
-        if not 0 <= self.top_p <= 1:
-            raise ValueError("Top-p must be between 0 and 1")
-        
-        # Validate torch dtype
-        valid_dtypes = ["float16", "float32", "bfloat16"]
-        if self.torch_dtype not in valid_dtypes:
-            raise ValueError(f"Invalid torch_dtype: {self.torch_dtype}. Must be one of {valid_dtypes}")
+            raise ValueError(f"Invalid model type: {self.type}")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary."""
+        return {
+            "name": self.name,
+            "type": self.type,
+            "checkpoint": self.checkpoint,
+            "model_path": self.model_path,
+            "base_model_type": self.base_model_type,
+            "model_class": self.model_class
+        }
 
 @dataclass
 class DatasetConfig:
-    # Required fields
-    name: str = "vtom"  # Default to VToM dataset
+    """Dataset-specific configuration."""
+    name: str
     
-    # Dataset path configuration (mutually exclusive)
-    dataset_path: Optional[str] = None  # Direct path to CSV file
-    data_dir: Optional[str] = None      # Base directory containing all versions
+    # Path settings
+    data_dir: Optional[str] = None
+    dataset_path: Optional[str] = None
     
-    # Dataset organization
-    version: str = "take_4.1"           # Dataset version (e.g., "take_4.1")
-    csv_file: Optional[str] = None      # CSV filename (defaults to {version}.csv)
+    # Dataset specific settings
+    version: Optional[str] = None
     split: str = "test"
+    csv_file: Optional[str] = None
     
     # Data loading settings
     max_samples: Optional[int] = None
-    batch_size: int = 1
-    num_workers: int = 4
-    
-    # Image processing settings
-    image_size: tuple = (224, 224)
-    preprocessing: Dict[str, Any] = field(default_factory=default_preprocessing)
+    image_size: Tuple[int, int] = (224, 224)
     
     # Inference settings
-    inference_type: str = "standard"
+    inference_type: Optional[str] = None
     
     def __post_init__(self):
-        # Validate path configuration
-        if not self.dataset_path and not self.data_dir:
-            raise ValueError("Either dataset_path or data_dir must be provided")
-            
-        # Set default csv_file if not provided
-        if not self.csv_file and self.version:
-            self.csv_file = f"{self.version}.csv"
-            
-        # Validate image size
-        if not isinstance(self.image_size, (tuple, list)) or len(self.image_size) != 2:
-            raise ValueError("image_size must be a tuple/list of (height, width)")
+        if not self.data_dir and not self.dataset_path:
+            raise ValueError("Either data_dir or dataset_path must be provided")
         
-        # Validate numeric parameters
-        if self.batch_size < 1:
-            raise ValueError("batch_size must be positive")
-        if self.num_workers < 0:
-            raise ValueError("num_workers must be non-negative")
-        
-        # Validate split
-        valid_splits = ["train", "val", "test"]
-        if self.split not in valid_splits:
-            raise ValueError(f"Invalid split: {self.split}. Must be one of {valid_splits}")
-            
-        # Validate inference type
-        valid_inference_types = ["standard", "image_story", "story_only", 
-                               "image_captions", "captions_only", "story_captions"]
-        if self.inference_type not in valid_inference_types:
-            raise ValueError(f"Invalid inference_type: {self.inference_type}")
+        # Validate inference_type if provided
+        if self.inference_type:
+            try:
+                InferenceType(self.inference_type)
+            except ValueError:
+                valid_types = [t.value for t in InferenceType]
+                raise ValueError(
+                    f"Invalid inference_type '{self.inference_type}'. "
+                    f"Must be one of: {', '.join(valid_types)}"
+                )
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary."""
+        return {
+            "name": self.name,
+            "data_dir": self.data_dir,
+            "dataset_path": self.dataset_path
+        }
+
+@dataclass
 class Config:
-    def __init__(self, config_dict: Dict[str, Any], dataset_path: Optional[str] = None):
-        # Load default config based on model name if specified
-        model_name = config_dict.get("model", {}).get("name")
-        if model_name:
-            default_config = load_default_config(model_name)
-            # Merge with user config (user config takes precedence)
-            merged_config = deepcopy(default_config)
-            merged_config.update(config_dict)
-            config_dict = merged_config
+    """Main configuration class."""
+    model: ModelConfig
+    dataset: DatasetConfig
+    inference: InferenceConfig = field(default_factory=InferenceConfig)
+    
+
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'Config':
+        """Create config from dictionary."""
+        # Extract config sections
+        model_dict = config_dict.get("model", {})
+        dataset_dict = config_dict.get("dataset", {})
+        inference_dict = config_dict.get("inference", {})
         
-        # Ensure required sections exist
-        if "model" not in config_dict:
-            raise ValueError("Config must contain 'model' section")
-        if "dataset" not in config_dict:
-            config_dict["dataset"] = {}
+        # Create sub-configs
+        model_config = ModelConfig(**model_dict)
+        dataset_config = DatasetConfig(**dataset_dict)
+        inference_config = InferenceConfig(**inference_dict)
+        
+        return cls(
+            model=model_config,
+            dataset=dataset_config,
+            inference=inference_config
+        )
+    
+    @classmethod
+    def from_yaml(cls, config_path: str, dataset_path: str = None, inference_type: str = None) -> 'Config':
+        """Load config from YAML with optional overrides.
+        
+        Args:
+            config_path: Path to YAML config file
+            dataset_path: Optional override for dataset path
+            inference_type: Optional override for inference type
+            
+        Returns:
+            Config object with all settings
+        """
+        with open(config_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
         
         # Override dataset path if provided
         if dataset_path:
-            config_dict["dataset"]["data_dir"] = dataset_path
+            if 'dataset' not in config_dict:
+                config_dict['dataset'] = {}
+            config_dict['dataset']['dataset_path'] = dataset_path
+        
+        # Override inference type if provided via CLI
+        if inference_type:
+            if 'dataset' not in config_dict:
+                config_dict['dataset'] = {}
+            config_dict['dataset']['inference_type'] = inference_type
             
-        # Add cache directory to config if not specified
-        if "cache_dir" not in config_dict:
-            config_dict["cache_dir"] = str(get_cache_dir())
-        
-        # Create configs with validation
-        try:
-            self.model_config = ModelConfig(**config_dict["model"])
-            self.dataset_config = DatasetConfig(**config_dict["dataset"])
-        except TypeError as e:
-            raise ValueError(f"Invalid config structure: {str(e)}")
-        
-        # Store additional inference settings
-        self.inference_config = config_dict.get("inference", {
-            "batch_size": 1,
-            "num_workers": 4,
-            "save_images": False,
-            "verbose": True
-        }) 
+        # Use from_dict to properly create nested configs
+        return cls.from_dict(config_dict)
+    
+    @staticmethod
+    def _merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        """Deep merge two config dictionaries."""
+        merged = deepcopy(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and key in merged:
+                merged[key] = Config._merge_configs(merged[key], value)
+            else:
+                merged[key] = value
+        return merged 
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary."""
+        return {
+            "model": self.model.to_dict(),
+            "dataset": self.dataset.to_dict(),
+            "inference": self.inference.to_dict()
+        }

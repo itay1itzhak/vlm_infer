@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional
 import pandas as pd
 import numpy as np
-from .metrics import compute_metrics, compute_f1_score
+from .metrics import compute_metrics, compute_accuracy
 
 class ResultAnalyzer:
     """Analyze model results with various groupings and metrics."""
@@ -10,14 +10,34 @@ class ResultAnalyzer:
         self.df = results_df
         
     def add_scores(self, model_column: str) -> pd.DataFrame:
-        """Add F1 scores for a model's predictions."""
-        self.df[f"{model_column}_f1"] = [
-            compute_f1_score(pred, target)
-            for pred, target in zip(
-                self.df[f"{model_column}_processed"],
-                self.df["expected_answer"]
-            )
-        ]
+        """Add accuracy scores for a model's predictions."""
+        correctness_column = f"{model_column}_correctness"
+        processed_column = f"{model_column}_processed"
+        
+        # Calculate final score for each sample
+        final_scores = []
+        for _, row in self.df.iterrows():
+            if correctness_column in self.df.columns:
+                label = row[correctness_column]
+                if label == "CORRECT":
+                    score = 1.0
+                elif label == "PARTIALLY_CORRECT":
+                    score = 0.5
+                else:  # Fall back to string matching
+                    score = compute_accuracy(
+                        row[processed_column],
+                        row["expected_answer"]
+                    )
+            else:
+                # Use string matching if no correctness labels
+                score = compute_accuracy(
+                    row[processed_column],
+                    row["expected_answer"]
+                )
+            final_scores.append(score)
+        
+        # Add final scores column
+        self.df[f"{model_column}_score"] = final_scores
         return self.df
     
     def analyze_by_group(
@@ -27,7 +47,7 @@ class ResultAnalyzer:
     ) -> pd.DataFrame:
         """Analyze results grouped by a specific column."""
         return self.df.groupby(group_column).agg({
-            f"{model_column}_f1": ["mean", "std", "count"]
+            f"{model_column}_score": ["mean", "std", "count"]
         }).round(3)
     
     def analyze_by_story(
@@ -57,18 +77,18 @@ class ResultAnalyzer:
             for group in self.df[group_by].unique():
                 group_df = self.df[self.df[group_by] == group]
                 metrics[group] = {
-                    model: compute_metrics(
-                        group_df[f"{model}_processed"],
-                        group_df["expected_answer"]
-                    )
+                    model: {
+                        "accuracy": group_df[f"{model}_score"].mean(),
+                        "accuracy_std": group_df[f"{model}_score"].std()
+                    }
                     for model in model_columns
                 }
         else:
             metrics["overall"] = {
-                model: compute_metrics(
-                    self.df[f"{model}_processed"],
-                    self.df["expected_answer"]
-                )
+                model: {
+                    "accuracy": self.df[f"{model}_score"].mean(),
+                    "accuracy_std": self.df[f"{model}_score"].std()
+                }
                 for model in model_columns
             }
         

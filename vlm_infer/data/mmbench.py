@@ -4,16 +4,19 @@ import pandas as pd
 from pathlib import Path
 from PIL import Image
 from .base import BaseDataset
+from vlm_infer.config import DatasetConfig
 
 class MMBenchDataset(BaseDataset):
     """MMBench dataset implementation."""
     
-    def __init__(self, config: Dict[str, Any]):
+    default_name = "mmbench"
+    
+    def __init__(self, config: DatasetConfig):
         super().__init__(config)
         self.data_dir = Path(config.data_dir)
         self.split = config.split
         self.max_samples = config.max_samples
-        self.image_size = config.image_size or (224, 224)
+        self.image_size = config.image_size
         
         # Load data
         self.data = self._load_data()

@@ -43,9 +43,23 @@ def parse_args() -> argparse.Namespace:
                        help="Run in debug mode (only process first 2 examples)")
  
     # Add inference type argument
-    parser.add_argument("--inference_type", type=str, default="standard",
-                       choices=[t.value for t in InferenceType],
-                       help="Type of inference to perform. Options are: standard (image + question), image_story (image + story + question), story_only (story + question), image_captions (image + captions + question), captions_only (captions + question), story_captions (story + captions + question)")
+    parser.add_argument(
+        "--inference_type",
+        type=str,
+        default=None,
+        choices=[t.value for t in InferenceType],
+        help=(
+            "Type of inference to perform. Options are: "
+            "standard (image + question), "
+            "image_story (image + story + question), "
+            "story_only (story + question), "
+            "image_captions (image + captions + question), "
+            "captions_only (captions + question), "
+            "story_captions (story + captions + question), "
+            "story_details (image + story_details + question). "
+            "If not provided, uses value from config file or defaults to 'standard'."
+        )
+    )
     
     # Add environment file argument
     parser.add_argument("--env_file", type=str, default=None,
@@ -60,11 +74,31 @@ def load_config(config_path: str) -> Dict[str, Any]:
     return config
 
 def main():
-    # Parse arguments
     args = parse_args()
     
+    # Load and validate config with CLI overrides
+    config = Config.from_yaml(
+        args.config, 
+        dataset_path=args.dataset_path,
+        inference_type=args.inference_type
+    )
+
     # Load environment variables
     load_env_vars(args.env_file)
+    
+    # Initialize components
+    model = get_model(args.model_name, config.model)
+    dataset = get_dataset(args.dataset, config.dataset)
+    
+    # Initialize pipeline with inference config
+    pipeline = InferencePipeline(
+        model=model,
+        dataset=dataset,
+        batch_size=config.inference.batch_size,
+        output_dir=args.output_dir,
+        config=config
+    )
+    
 
     # Create output directory
     output_dir = Path(args.output_dir)
@@ -78,55 +112,17 @@ def main():
         log_level=log_level
     )
     
-    # Load configuration
-    config_dict = load_config(args.config)
-    
-    # Ensure dataset configuration exists
-    if "dataset" not in config_dict:
-        config_dict["dataset"] = {}
-    
-    # Override dataset path if provided via command line
-    if args.dataset_path:
-        config_dict["dataset"]["data_dir"] = args.dataset_path
-    
-    # Create config object with validation
-    config = Config(config_dict)
-    
     logger.info(f"Starting inference with model: {args.model_name}")
     logger.info(f"Dataset: {args.dataset}")
     if args.dataset_path:
         logger.info(f"Dataset path: {args.dataset_path}")
     logger.info(f"Device: {args.device}")
     
-
-    
     try:
-        # Initialize model
-        model = get_model(
-            model_name=args.model_name,
-            config=config.model_config,
-            device=args.device,
-        )
-        
-        # Initialize dataset
-        dataset = get_dataset(
-            dataset_name=args.dataset,
-            config=config.dataset_config
-        )
-        
         # If in debug mode, limit dataset size
         if args.debug:
             logger.info("Running in debug mode with first 2 examples")
             dataset.data = dataset.data.iloc[:2]
-        
-        # Initialize inference pipeline
-        pipeline = InferencePipeline(
-            model=model,
-            dataset=dataset,
-            batch_size=args.batch_size,
-            output_dir=output_dir,
-            config=config
-        )
         
         # Run inference
         results = pipeline.run()

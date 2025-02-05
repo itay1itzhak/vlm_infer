@@ -1,0 +1,14 @@
+model:
+  name: "gpt4v"
+  temperature: 0.0
+
+dataset:
+  name: "vtom"
+  data_dir: "data/vtom"
+  version: "take_4.1"
+  split: "test"
+  inference_type: "image_story"
+
+inference:
+  batch_size: 1
+  save_images: true 

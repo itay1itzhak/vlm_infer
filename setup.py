@@ -13,6 +13,12 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/[your-username]/vlm_infer",
     packages=find_packages(),
+    scripts=['scripts/run_inference.py'],
+    entry_points={
+        'console_scripts': [
+            'vlm-infer=vlm_infer.main:main',
+        ],
+    },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",

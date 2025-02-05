@@ -1,0 +1,17 @@
+model:
+  name: "llava_7B"
+  type: "hf"
+  checkpoint: "llava-hf/llava-1.5-7b-hf"
+  temperature: 0.7
+
+dataset:
+  name: "vtom"
+  data_dir: "path/to/data"
+  version: "take_4.1"
+  split: "test"
+
+inference:
+  batch_size: 1
+  num_workers: 4
+  save_images: false
+  verbose: true 
